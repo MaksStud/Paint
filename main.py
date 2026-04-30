@@ -1,15 +1,15 @@
 import sys
 import os
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QGraphicsView, QGraphicsScene, 
-    QToolBar, QStatusBar, QFileDialog, QMessageBox, QMenu,
-    QColorDialog, QSpinBox, QLabel, QVBoxLayout, QWidget
+    QApplication, QMainWindow, QGraphicsView, QGraphicsScene,
+    QToolBar, QStatusBar, QFileDialog, QMessageBox,
+    QColorDialog, QSpinBox, QLabel
 )
-from PyQt6.QtGui import QAction, QIcon, QPainter, QColor, QPen, QImage, QUndoStack, QUndoCommand, QBrush
-from PyQt6.QtCore import Qt, QSize, QRectF, QPointF
+from PyQt6.QtGui import QAction, QPainter, QColor, QPen, QImage, QUndoStack, QUndoCommand
+from PyQt6.QtCore import Qt, QRectF
+
 
 class AddShapeCommand(QUndoCommand):
-# ... (rest of the class)
     def __init__(self, scene, item, description):
         super().__init__(description)
         self.scene = scene
@@ -23,6 +23,7 @@ class AddShapeCommand(QUndoCommand):
         if not self.first_run:
             self.scene.addItem(self.item)
         self.first_run = False
+
 
 class PencilCommand(QUndoCommand):
     def __init__(self, scene, items, description):
@@ -41,6 +42,7 @@ class PencilCommand(QUndoCommand):
                 self.scene.addItem(item)
         self.first_run = False
 
+
 class DrawingScene(QGraphicsScene):
     def __init__(self, undo_stack, parent=None):
         super().__init__(parent)
@@ -48,11 +50,11 @@ class DrawingScene(QGraphicsScene):
         self.setSceneRect(0, 0, 800, 600)
         self.bg_color = QColor(Qt.GlobalColor.white)
         self.setBackgroundBrush(self.bg_color)
-        
+
         self.current_tool = "pencil"
         self.current_color = QColor(Qt.GlobalColor.black)
         self.line_width = 2
-        
+
         self.last_point = None
         self.current_item = None
         self.pencil_items = []
@@ -134,6 +136,7 @@ class DrawingScene(QGraphicsScene):
             self.pencil_items = []
         super().mouseReleaseEvent(event)
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -165,20 +168,20 @@ class MainWindow(QMainWindow):
 
     def init_menus(self):
         menubar = self.menuBar()
-        
+
         # Actions that will be used in both menu and toolbars
         self.new_act = QAction("📄 Новий", self)
         self.new_act.triggered.connect(self.new_file)
-        
+
         self.save_act = QAction("💾 Зберегти", self)
         self.save_act.triggered.connect(self.save_file)
-        
+
         self.exit_act = QAction("Вихід", self)
         self.exit_act.triggered.connect(self.close)
 
         self.undo_act = self.undo_stack.createUndoAction(self, "↩️ Скасувати")
         self.undo_act.setShortcut("Ctrl+Z")
-        
+
         self.redo_act = self.undo_stack.createRedoAction(self, "↪️ Повторити")
         self.redo_act.setShortcut("Ctrl+Y")
 
@@ -201,13 +204,13 @@ class MainWindow(QMainWindow):
 
         # View Menu
         self.view_menu = menubar.addMenu("Вигляд")
-        
+
         # Help Menu
         help_menu = menubar.addMenu("Довідка")
         help_action = QAction("Переглянути довідку", self)
         help_action.triggered.connect(self.open_help)
         help_menu.addAction(help_action)
-        
+
         about_action = QAction("Про програму", self)
         about_action.triggered.connect(self.about)
         help_menu.addAction(about_action)
@@ -300,11 +303,11 @@ class MainWindow(QMainWindow):
         # This prevents cropping and "dead zones" when maximized
         view_rect = self.view.viewport().rect()
         scene_rect = self.scene.sceneRect()
-        
+
         # United current scene rect with the new visible area
         new_rect = scene_rect.united(QRectF(0, 0, view_rect.width(), view_rect.height()))
         self.scene.setSceneRect(new_rect)
-        
+
         super().resizeEvent(event)
 
     def choose_color(self):
@@ -335,11 +338,11 @@ class MainWindow(QMainWindow):
     def maybe_save(self):
         if not self.modified:
             return True
-        
+
         reply = QMessageBox.question(self, 'Збереження',
-                                    "Документ було змінено. Бажаєте зберегти зміни перед продовженням?",
-                                    QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
-                                    QMessageBox.StandardButton.Save)
+                                     "Документ було змінено. Бажаєте зберегти зміни перед продовженням?",
+                                     QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+                                     QMessageBox.StandardButton.Save)
 
         if reply == QMessageBox.StandardButton.Save:
             return self.save_file()
@@ -360,17 +363,17 @@ class MainWindow(QMainWindow):
             items_rect = self.scene.itemsBoundingRect()
             # Also consider the current sceneRect to include background if items are small
             save_rect = items_rect.united(self.scene.sceneRect())
-            
+
             # Create image with appropriate size
             image = QImage(save_rect.size().toSize(), QImage.Format.Format_ARGB32)
             image.fill(self.scene.bg_color)
-            
+
             painter = QPainter(image)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             # Render the specific area to the image
             self.scene.render(painter, QRectF(image.rect()), save_rect)
             painter.end()
-            
+
             if image.save(file_path):
                 self.modified = False
                 self.statusBar().showMessage(f"Збережено: {file_path}")
@@ -397,7 +400,7 @@ class MainWindow(QMainWindow):
 
     def about(self):
         QMessageBox.about(self, "Про PyPaint", 
-                         "PyPaint v1.0\n\nГрафічний редактор як системна програма.\nРеалізовано на PyQt6 з підтримкою Undo/Redo та групуванням інструментів.")
+                          "PyPaint v1.0\n\nГрафічний редактор як системна програма.\nРеалізовано на PyQt6 з підтримкою Undo/Redo та групуванням інструментів.")
 
 
 if __name__ == "__main__":
