@@ -149,6 +149,9 @@ class MainWindow(QMainWindow):
         self.scene = DrawingScene(self.undo_stack)
         self.view = QGraphicsView(self.scene)
         self.view.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.view.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
+        self.view.setBackgroundBrush(QColor(Qt.GlobalColor.white))
+        self.view.setFrameShape(QGraphicsView.Shape.NoFrame)
         self.setCentralWidget(self.view)
 
         # UI Components
@@ -310,10 +313,11 @@ class MainWindow(QMainWindow):
             self.scene.set_color(color)
 
     def clear_scene(self):
-        reply = QMessageBox.question(self, 'Підтвердження', 
-                                    "Ви впевнені, що хочете очистити все полотно?",
-                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
-                                    QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(self, 
+                                     'Підтвердження', 
+                                     "Ви впевнені, що хочете очистити все полотно?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
+                                     QMessageBox.StandardButton.No)
 
         if reply == QMessageBox.StandardButton.Yes:
             self.scene.clear()
