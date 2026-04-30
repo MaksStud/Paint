@@ -5,10 +5,11 @@ from PyQt6.QtWidgets import (
     QToolBar, QStatusBar, QFileDialog, QMessageBox, QMenu,
     QColorDialog, QSpinBox, QLabel, QVBoxLayout, QWidget
 )
-from PyQt6.QtGui import QAction, QIcon, QPainter, QColor, QPen, QImage, QUndoStack, QUndoCommand
+from PyQt6.QtGui import QAction, QIcon, QPainter, QColor, QPen, QImage, QUndoStack, QUndoCommand, QBrush
 from PyQt6.QtCore import Qt, QSize, QRectF, QPointF
 
 class AddShapeCommand(QUndoCommand):
+# ... (rest of the class)
     def __init__(self, scene, item, description):
         super().__init__(description)
         self.scene = scene
@@ -45,6 +46,9 @@ class DrawingScene(QGraphicsScene):
         super().__init__(parent)
         self.undo_stack = undo_stack
         self.setSceneRect(0, 0, 800, 600)
+        self.bg_color = QColor(Qt.GlobalColor.white)
+        self.setBackgroundBrush(self.bg_color)
+        
         self.current_tool = "pencil"
         self.current_color = QColor(Qt.GlobalColor.black)
         self.line_width = 2
@@ -58,6 +62,10 @@ class DrawingScene(QGraphicsScene):
 
     def set_color(self, color):
         self.current_color = color
+
+    def set_bg_color(self, color):
+        self.bg_color = color
+        self.setBackgroundBrush(self.bg_color)
 
     def set_line_width(self, width):
         self.line_width = width
@@ -90,8 +98,9 @@ class DrawingScene(QGraphicsScene):
     def mouseMoveEvent(self, event):
         if event.buttons() & Qt.MouseButton.LeftButton:
             current_pos = event.scenePos()
-            if self.current_tool == "pencil":
-                pen = QPen(self.current_color, self.line_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+            if self.current_tool == "pencil" or self.current_tool == "eraser":
+                color = self.current_color if self.current_tool == "pencil" else self.bg_color
+                pen = QPen(color, self.line_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
                 line = self.addLine(
                     self.last_point.x(), self.last_point.y(),
                     current_pos.x(), current_pos.y(),
@@ -154,35 +163,40 @@ class MainWindow(QMainWindow):
     def init_menus(self):
         menubar = self.menuBar()
         
+        # Actions that will be used in both menu and toolbars
+        self.new_act = QAction("📄 Новий", self)
+        self.new_act.triggered.connect(self.new_file)
+        
+        self.save_act = QAction("💾 Зберегти", self)
+        self.save_act.triggered.connect(self.save_file)
+        
+        self.exit_act = QAction("Вихід", self)
+        self.exit_act.triggered.connect(self.close)
+
+        self.undo_act = self.undo_stack.createUndoAction(self, "↩️ Скасувати")
+        self.undo_act.setShortcut("Ctrl+Z")
+        
+        self.redo_act = self.undo_stack.createRedoAction(self, "↪️ Повторити")
+        self.redo_act.setShortcut("Ctrl+Y")
+
+        self.clear_act = QAction("🗑️ Очистити", self)
+        self.clear_act.triggered.connect(self.clear_scene)
+
         # File Menu
         file_menu = menubar.addMenu("Файл")
-        
-        new_action = QAction("Новий", self)
-        new_action.triggered.connect(self.new_file)
-        file_menu.addAction(new_action)
-        
-        save_action = QAction("Зберегти як...", self)
-        save_action.triggered.connect(self.save_file)
-        file_menu.addAction(save_action)
-        
+        file_menu.addAction(self.new_act)
+        file_menu.addAction(self.save_act)
         file_menu.addSeparator()
-        
-        exit_action = QAction("Вихід", self)
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
+        file_menu.addAction(self.exit_act)
 
         # Edit Menu
         edit_menu = menubar.addMenu("Правка")
-        
-        undo_action = self.undo_stack.createUndoAction(self, "Скасувати")
-        undo_action.setShortcut("Ctrl+Z")
-        edit_menu.addAction(undo_action)
-        
-        redo_action = self.undo_stack.createRedoAction(self, "Повторити")
-        redo_action.setShortcut("Ctrl+Y")
-        edit_menu.addAction(redo_action)
+        edit_menu.addAction(self.undo_act)
+        edit_menu.addAction(self.redo_act)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.clear_act)
 
-        # View Menu (for functional groups)
+        # View Menu
         self.view_menu = menubar.addMenu("Вигляд")
         
         # Help Menu
@@ -198,21 +212,15 @@ class MainWindow(QMainWindow):
     def init_toolbars(self):
         # 1. File Toolbar
         self.file_toolbar = QToolBar("Файлові операції")
+        self.file_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(self.file_toolbar)
         self.view_menu.addAction(self.file_toolbar.toggleViewAction())
-
-        new_act = QAction("📄 Новий", self)
-        new_act.setToolTip("Створити нове порожнє полотно")
-        new_act.triggered.connect(self.new_file)
-        self.file_toolbar.addAction(new_act)
-
-        save_act = QAction("💾 Зберегти", self)
-        save_act.setToolTip("Зберегти малюнок у файл")
-        save_act.triggered.connect(self.save_file)
-        self.file_toolbar.addAction(save_act)
+        self.file_toolbar.addAction(self.new_act)
+        self.file_toolbar.addAction(self.save_act)
 
         # 2. Drawing Tools Toolbar
         self.tools_toolbar = QToolBar("Інструменти малювання")
+        self.tools_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(self.tools_toolbar)
         self.view_menu.addAction(self.tools_toolbar.toggleViewAction())
 
@@ -236,8 +244,14 @@ class MainWindow(QMainWindow):
         ellipse_act.triggered.connect(lambda: self.scene.set_tool("ellipse"))
         self.tools_toolbar.addAction(ellipse_act)
 
+        eraser_act = QAction("🧼 Стирачка", self)
+        eraser_act.setToolTip("Стирання частин малюнку (білий колір)")
+        eraser_act.triggered.connect(lambda: self.scene.set_tool("eraser"))
+        self.tools_toolbar.addAction(eraser_act)
+
         # 3. Style Toolbar
         self.style_toolbar = QToolBar("Властивості")
+        self.style_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(self.style_toolbar)
         self.view_menu.addAction(self.style_toolbar.toggleViewAction())
 
@@ -245,6 +259,11 @@ class MainWindow(QMainWindow):
         color_act.setToolTip("Вибрати колір малювання")
         color_act.triggered.connect(self.choose_color)
         self.style_toolbar.addAction(color_act)
+
+        bg_color_act = QAction("🖼️ Фон", self)
+        bg_color_act.setToolTip("Вибрати колір фону")
+        bg_color_act.triggered.connect(self.choose_bg_color)
+        self.style_toolbar.addAction(bg_color_act)
 
         self.style_toolbar.addWidget(QLabel(" Товщина: "))
         self.width_spin = QSpinBox()
@@ -254,30 +273,20 @@ class MainWindow(QMainWindow):
         self.width_spin.valueChanged.connect(self.scene.set_line_width)
         self.style_toolbar.addWidget(self.width_spin)
 
-        # 4. History Toolbar (Undo/Redo) - Dedicated for prominent access
+        # 4. History Toolbar (Undo/Redo)
         self.history_toolbar = QToolBar("Історія дій")
+        self.history_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(self.history_toolbar)
         self.view_menu.addAction(self.history_toolbar.toggleViewAction())
-
-        undo_act = self.undo_stack.createUndoAction(self, "↩️ Скасувати")
-        undo_act.setToolTip("Скасувати останню дію (Ctrl+Z)")
-        self.history_toolbar.addAction(undo_act)
-
-        redo_act = self.undo_stack.createRedoAction(self, "↪️ Повторити")
-        redo_act.setToolTip("Повернути скасовану дію (Ctrl+Y)")
-        self.history_toolbar.addAction(redo_act)
+        self.history_toolbar.addAction(self.undo_act)
+        self.history_toolbar.addAction(self.redo_act)
 
         # 5. Edit Toolbar
         self.edit_toolbar = QToolBar("Редагування")
+        self.edit_toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(self.edit_toolbar)
         self.view_menu.addAction(self.edit_toolbar.toggleViewAction())
-
-        clear_act = QAction("🗑️ Очистити", self)
-        clear_act.setToolTip("Видалити всі елементи з полотна")
-        clear_act.triggered.connect(self.clear_scene)
-        self.edit_toolbar.addAction(clear_act)
-
-
+        self.edit_toolbar.addAction(self.clear_act)
 
     def init_statusbar(self):
         self.setStatusBar(QStatusBar(self))
@@ -322,12 +331,18 @@ class MainWindow(QMainWindow):
             return False
         return True
 
+    def choose_bg_color(self):
+        color = QColorDialog.getColor(self.scene.bg_color, self, "Виберіть колір фону")
+        if color.isValid():
+            self.scene.set_bg_color(color)
+            self.statusBar().showMessage("Колір фону змінено")
+
     def save_file(self):
         file_path, _ = QFileDialog.getSaveFileName(self, "Зберегти малюнок", "", "PNG Files (*.png);;JPG Files (*.jpg);;All Files (*)")
         if file_path:
             rect = self.scene.sceneRect()
             image = QImage(QSize(int(rect.width()), int(rect.height())), QImage.Format.Format_ARGB32)
-            image.fill(Qt.GlobalColor.white)
+            image.fill(self.scene.bg_color)
             
             painter = QPainter(image)
             self.scene.render(painter)
