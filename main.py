@@ -292,6 +292,18 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar(self))
         self.statusBar().showMessage("Готово")
 
+    def resizeEvent(self, event):
+        # Expand the scene to match the view size when window is resized
+        # This prevents cropping and "dead zones" when maximized
+        view_rect = self.view.viewport().rect()
+        scene_rect = self.scene.sceneRect()
+        
+        # United current scene rect with the new visible area
+        new_rect = scene_rect.united(QRectF(0, 0, view_rect.width(), view_rect.height()))
+        self.scene.setSceneRect(new_rect)
+        
+        super().resizeEvent(event)
+
     def choose_color(self):
         color = QColorDialog.getColor(self.scene.current_color, self, "Виберіть колір")
         if color.isValid():
@@ -340,12 +352,19 @@ class MainWindow(QMainWindow):
     def save_file(self):
         file_path, _ = QFileDialog.getSaveFileName(self, "Зберегти малюнок", "", "PNG Files (*.png);;JPG Files (*.jpg);;All Files (*)")
         if file_path:
-            rect = self.scene.sceneRect()
-            image = QImage(QSize(int(rect.width()), int(rect.height())), QImage.Format.Format_ARGB32)
+            # Calculate the area that contains all drawn items
+            items_rect = self.scene.itemsBoundingRect()
+            # Also consider the current sceneRect to include background if items are small
+            save_rect = items_rect.united(self.scene.sceneRect())
+            
+            # Create image with appropriate size
+            image = QImage(save_rect.size().toSize(), QImage.Format.Format_ARGB32)
             image.fill(self.scene.bg_color)
             
             painter = QPainter(image)
-            self.scene.render(painter)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            # Render the specific area to the image
+            self.scene.render(painter, QRectF(image.rect()), save_rect)
             painter.end()
             
             if image.save(file_path):
