@@ -43,6 +43,20 @@ class PencilCommand(QUndoCommand):
         self.first_run = False
 
 
+class BackgroundColorCommand(QUndoCommand):
+    def __init__(self, apply_color, old_color, new_color):
+        super().__init__("Зміна фону")
+        self.apply_color = apply_color
+        self.old_color = QColor(old_color)
+        self.new_color = QColor(new_color)
+
+    def undo(self):
+        self.apply_color(self.old_color)
+
+    def redo(self):
+        self.apply_color(self.new_color)
+
+
 class DrawingScene(QGraphicsScene):
     def __init__(self, undo_stack, parent=None):
         super().__init__(parent)
@@ -66,8 +80,9 @@ class DrawingScene(QGraphicsScene):
         self.current_color = color
 
     def set_bg_color(self, color):
-        self.bg_color = color
+        self.bg_color = QColor(color)
         self.setBackgroundBrush(self.bg_color)
+        self.update(self.sceneRect())
 
     def set_line_width(self, width):
         self.line_width = width
@@ -145,7 +160,7 @@ class MainWindow(QMainWindow):
 
         # Undo Stack
         self.undo_stack = QUndoStack(self)
-        self.undo_stack.indexChanged.connect(self.update_modified)
+        self.undo_stack.cleanChanged.connect(self.update_modified)
         self.modified = False
 
         # Scene and View
@@ -161,10 +176,24 @@ class MainWindow(QMainWindow):
         self.init_menus()
         self.init_toolbars()
         self.init_statusbar()
+        self.undo_stack.setClean()
 
-    def update_modified(self):
-        self.modified = True
-        self.statusBar().showMessage("Документ змінено")
+    def update_modified(self, clean):
+        self.modified = not clean
+        if self.modified:
+            self.statusBar().showMessage("Документ змінено")
+
+    def apply_background_color(self, color):
+        self.scene.set_bg_color(color)
+        self.view.setBackgroundBrush(self.scene.bg_color)
+        self.view.viewport().update()
+
+    def reset_canvas(self):
+        self.scene.clear()
+        self.apply_background_color(QColor(Qt.GlobalColor.white))
+        self.undo_stack.clear()
+        self.undo_stack.setClean()
+        self.modified = False
 
     def init_menus(self):
         menubar = self.menuBar()
@@ -323,16 +352,12 @@ class MainWindow(QMainWindow):
                                      QMessageBox.StandardButton.No)
 
         if reply == QMessageBox.StandardButton.Yes:
-            self.scene.clear()
-            self.undo_stack.clear()
-            self.modified = False
+            self.reset_canvas()
             self.statusBar().showMessage("Полотно очищено")
 
     def new_file(self):
         if self.maybe_save():
-            self.scene.clear()
-            self.undo_stack.clear()
-            self.modified = False
+            self.reset_canvas()
             self.statusBar().showMessage("Створено нове полотно")
 
     def maybe_save(self):
@@ -351,9 +376,10 @@ class MainWindow(QMainWindow):
         return True
 
     def choose_bg_color(self):
-        color = QColorDialog.getColor(self.scene.bg_color, self, "Виберіть колір фону")
-        if color.isValid():
-            self.scene.set_bg_color(color)
+        old_color = QColor(self.scene.bg_color)
+        color = QColorDialog.getColor(old_color, self, "Виберіть колір фону")
+        if color.isValid() and color != old_color:
+            self.undo_stack.push(BackgroundColorCommand(self.apply_background_color, old_color, color))
             self.statusBar().showMessage("Колір фону змінено")
 
     def save_file(self):
@@ -375,6 +401,7 @@ class MainWindow(QMainWindow):
             painter.end()
 
             if image.save(file_path):
+                self.undo_stack.setClean()
                 self.modified = False
                 self.statusBar().showMessage(f"Збережено: {file_path}")
                 return True
