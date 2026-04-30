@@ -302,7 +302,7 @@ class MainWindow(QMainWindow):
 
         self.style_toolbar.addWidget(QLabel(" Товщина: "))
         self.width_spin = QSpinBox()
-        self.width_spin.setRange(1, 20)
+        self.width_spin.setRange(1, 50)
         self.width_spin.setValue(2)
         self.width_spin.setToolTip("Товщина лінії")
         self.width_spin.valueChanged.connect(self.scene.set_line_width)
