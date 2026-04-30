@@ -3,7 +3,8 @@ import os
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QGraphicsView, QGraphicsScene,
     QToolBar, QStatusBar, QFileDialog, QMessageBox,
-    QColorDialog, QSpinBox, QLabel
+    QColorDialog, QSpinBox, QLabel, QDialog,
+    QVBoxLayout, QDialogButtonBox, QTextBrowser
 )
 from PyQt6.QtGui import QAction, QPainter, QColor, QPen, QImage, QUndoStack, QUndoCommand
 from PyQt6.QtCore import Qt, QRectF
@@ -411,11 +412,32 @@ class MainWindow(QMainWindow):
         return False
 
     def open_help(self):
-        # For now, just show a message or try to open help.html if it exists
         help_path = os.path.join(os.getcwd(), "help", "index.html")
         if os.path.exists(help_path):
-            import webbrowser
-            webbrowser.open(f"file://{help_path}")
+            try:
+                with open(help_path, "r", encoding="utf-8") as help_file:
+                    help_html = help_file.read()
+            except OSError as error:
+                QMessageBox.critical(self, "Помилка", f"Не вдалося відкрити довідку: {error}")
+                return
+
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Довідка PyPaint")
+            dialog.resize(820, 640)
+
+            layout = QVBoxLayout(dialog)
+
+            help_view = QTextBrowser(dialog)
+            help_view.setOpenExternalLinks(True)
+            help_view.setHtml(help_html)
+            layout.addWidget(help_view)
+
+            buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=dialog)
+            buttons.rejected.connect(dialog.reject)
+            buttons.accepted.connect(dialog.accept)
+            layout.addWidget(buttons)
+
+            dialog.exec()
         else:
             QMessageBox.information(self, "Довідка", "Файл довідки ще не створено.")
 
